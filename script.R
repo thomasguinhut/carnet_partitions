@@ -1,20 +1,28 @@
-# Installer et charger les packages nécessaires
-packages <- c("qpdf", "dplyr", "purrr", "tidyr")
+# PARAMÈTRES -------------------------------------------------------------------
+nom_page_garde <- "page_garde.pdf"
+fichier_temp_fusion <- "fichier_fusionne_temp.pdf"
+fichier_page_garde_a5 <- "page_garde_A5.pdf"
+fichier_partitions_a5 <- "partitions_A5.pdf"
+fichier_final <- "fichier_fusionne_A5.pdf"
+
+# Nettoyer les anciens fichiers ------------------------------------------------
+fichiers_a_supprimer <- c(fichier_temp_fusion, fichier_page_garde_a5, 
+                          fichier_partitions_a5, fichier_final)
+file.remove(fichiers_a_supprimer[file.exists(fichiers_a_supprimer)])
+
+# CHARGER LES PACKAGES ---------------------------------------------------------
+packages <- c("dplyr", "purrr", "tidyr")
 lapply(packages, function(pkg) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    install.packages(pkg)
-  }
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
   library(pkg, character.only = TRUE)
 })
 
-# Lire le fichier CSV
+# LIRE LES DONNÉES -------------------------------------------------------------
 bdd <- read.csv("liste.csv")
 
-# Filtrer les musiques à jouer
 musiques_a_jouer <- bdd %>%
   filter(JOUE == 1)
 
-# Générer les noms de fichiers
 noms_fichiers <- musiques_a_jouer %>%
   mutate(NOM_FICHIER = pmap(
     list(NOM_FICHIER, NBR_VERSIONS),
@@ -31,52 +39,57 @@ noms_fichiers <- musiques_a_jouer %>%
   unnest(cols = NOM_FICHIER) %>%
   pull(NOM_FICHIER)
 
-# Définir chemins
+# CHEMINS DES FICHIERS ---------------------------------------------------------
 dossier_source <- file.path(getwd(), "partitions")
-fichier_page_garde <- file.path(getwd(), "page_garde.pdf")
-fichier_partitions_temp <- file.path(getwd(), "partitions_temp.pdf")
-fichier_partitions_paysage <- file.path(getwd(), "partitions_paysage.pdf")
-fichier_final <- file.path(getwd(), "fichier_fusionne_A4.pdf")
-
-# Vérifier que les fichiers existent
 chemins_complets <- file.path(dossier_source, noms_fichiers)
 chemins_existant <- chemins_complets[file.exists(chemins_complets)]
 fichiers_manquants <- noms_fichiers[!file.exists(chemins_complets)]
 
 if (length(fichiers_manquants) > 0) {
-  warning("Fichiers manquants ignorés :\n", paste(fichiers_manquants, collapse = "\n"))
+  warning("⚠️ Fichiers manquants ignorés :\n", paste(fichiers_manquants, collapse = "\n"))
 }
 
-if (!file.exists(fichier_page_garde)) {
-  stop("Le fichier page_garde.pdf est introuvable.")
+if (!file.exists(nom_page_garde)) {
+  stop("❌ Le fichier 'page_garde.pdf' est introuvable.")
 }
 
-# Fusionner uniquement les partitions
-if (length(chemins_existant) > 0) {
-  pdf_combine(input = chemins_existant, output = fichier_partitions_temp)
-  
-  # Appliquer paysage uniquement aux partitions
-  pdfjam_cmd <- sprintf(
-    "pdfjam \"%s\" --landscape --fitpaper true --outfile \"%s\"",
-    fichier_partitions_temp, fichier_partitions_paysage
-  )
-  system(pdfjam_cmd)
-  
-  if (!file.exists(fichier_partitions_paysage)) {
-    stop("Échec de la rotation paysage des partitions.")
+# FONCTION CONVERSION A5 PAYSAGE -----------------------------------------------
+convert_to_a5_landscape <- function(input, output) {
+  cmd <- sprintf('pdfjam "%s" --paper a5paper --landscape --outfile "%s"', input, output)
+  result <- system(cmd)
+  if (result != 0 || !file.exists(output)) {
+    stop("❌ La conversion A5 paysage a échoué pour : ", input)
   }
-  
-  # Fusion finale : page de garde (portrait) + partitions (paysage)
-  pdf_combine(
-    input = c(fichier_page_garde, fichier_partitions_paysage),
-    output = fichier_final
-  )
-  
-  cat("✅ Fichier final généré :", fichier_final, "\n")
-  
-  # Nettoyage
-  file.remove(fichier_partitions_temp, fichier_partitions_paysage)
-  
-} else {
-  stop("Aucun fichier PDF valide à fusionner.")
 }
+
+# TRAITEMENT --------------------------------------------------------------------
+
+# 1. Convertir la page de garde
+convert_to_a5_landscape(nom_page_garde, fichier_page_garde_a5)
+
+# 2. Fusionner les partitions originales (sans rotation)
+temp_partitions <- tempfile(fileext = ".pdf")
+fusion_cmd <- sprintf('pdfjam %s --outfile "%s"',
+                      paste(shQuote(chemins_existant), collapse = " "),
+                      temp_partitions)
+result <- system(fusion_cmd)
+if (result != 0 || !file.exists(temp_partitions)) {
+  stop("❌ Fusion des partitions échouée.")
+}
+
+# 3. Convertir les partitions en A5 paysage
+convert_to_a5_landscape(temp_partitions, fichier_partitions_a5)
+
+# 4. Fusion finale avec la page de garde
+fusion_finale_cmd <- sprintf('pdfjam "%s" "%s" --outfile "%s"',
+                             fichier_page_garde_a5, fichier_partitions_a5, fichier_final)
+result <- system(fusion_finale_cmd)
+
+if (result == 0 && file.exists(fichier_final)) {
+  cat("✅ PDF final généré avec succès :", fichier_final, "\n")
+} else {
+  stop("❌ Échec de la génération du PDF final.")
+}
+
+# 5. Nettoyage
+file.remove(fichiers_a_supprimer[file.exists(fichiers_a_supprimer)])

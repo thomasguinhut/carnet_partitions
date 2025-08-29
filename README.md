@@ -2,7 +2,7 @@
 
 Le script est applicable pour créer un carnet de partitions du musique.
 
-## ⚠️ Prérequis important**
+## ⚠️ Prérequis important
 
 Le projet est configuré de sorte qu'il soit utilisé sur une plateforme datalab Onyxia (SSPCloud ou LS3). En particulier, avant tout lancement de programme, il est nécessaire de disposer dans son bucket MinIO d'un dossier nommé `carnet_partitions`, avec à l'intérieur les fichiers PDF à fusionner (dans un dossier nommé `partitions`), la page de garde nommé `page_garde.pdf` et le fichier CSV `list.csv`.
 

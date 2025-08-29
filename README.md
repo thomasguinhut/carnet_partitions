@@ -23,7 +23,7 @@ bucket/
 2. Ajouter l'URL du repository dans les paramètres : https://github.com/thomasguinhut/carnet_partitions
 3. Lancer et ouvrir le dossier parent du projet
 
-## Lancement du programme**
+## Lancement du programme
 
 ```bash
 pip install -r requirements.txt

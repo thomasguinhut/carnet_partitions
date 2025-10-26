@@ -79,7 +79,11 @@ def convertir_page_dans_A5_paysage_compressé(pdf_path: str) -> BytesIO:
     return out
 
 
-def fusionner_pdfs_et_sauvegarder(pdfs_a_traiter: list[str], fichier_final: str, rotated: bool = False) -> None:
+def fusionner_pdfs_et_sauvegarder(
+    pdfs_a_traiter: list[str],
+    fichier_final: str,
+    rotated: bool = False
+) -> None:
     merger = PdfMerger()
     for pdf_path in pdfs_a_traiter:
         pdf_converti = convertir_page_dans_A5_paysage_compressé(pdf_path)
